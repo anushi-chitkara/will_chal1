@@ -82,9 +82,12 @@ class BackupManager:
 
     def _git_commit_push(self):
         try:
-            self.repo.git.add(A=True)
-            self.repo.git.commit(m="AutoStash Backup")
-            self.repo.remotes.origin.push()
+            # Check if there are changes to commit
+            if self.repo.is_dirty() or len(self.repo.untracked_files) > 0:
+                self.repo.git.add(A=True)
+                self.repo.git.commit(m="AutoStash Backup")
+                # Always push (even if nothing new to commit)
+                self.repo.remotes.origin.push()
         except GitCommandError as e:
             raise Exception(f"Git error: {str(e)}")
 
