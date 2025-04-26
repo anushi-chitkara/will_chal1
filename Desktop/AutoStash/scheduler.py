@@ -1,5 +1,5 @@
 from crontab import CronTab
-
+import os
 def schedule_backup(interval):
     cron = CronTab(user=True)
     job = cron.new(command=f"python3 {os.path.abspath(__file__)} --backup")
