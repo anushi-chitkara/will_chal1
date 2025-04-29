@@ -13,9 +13,21 @@ import scheduler
 class AutoStashGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AutoStash – Smart GitHub Backups")
-        self.geometry("600x650")
-        self.resizable(False, False)
+        self.title("Linux Backup Manager")
+        self.geometry("760x850")
+        self.configure(bg="#f7f7f7")
+        self.option_add("*Font", "Arial 11")
+
+        # ttk style tweaks for modern look
+        style = ttk.Style(self)
+        style.theme_use("clam")
+        style.configure("TLabelframe", background="#f7f7f7", borderwidth=0)
+        style.configure("TLabelframe.Label", font=("Arial", 12, "bold"), background="#f7f7f7")
+        style.configure("TLabel", background="#f7f7f7")
+        style.configure("TButton", font=("Arial", 10, "bold"), padding=6)
+        style.configure("TCheckbutton", background="#f7f7f7", font=("Arial", 10))
+        style.configure("TCombobox", fieldbackground="#fff", background="#fff")
+        style.configure("TProgressbar", thickness=18, troughcolor="#e0e0e0", background="#3498db", bordercolor="#bdc3c7", lightcolor="#5dade2", darkcolor="#2980b9")
 
         # Managers
         self.config = ConfigManager()
@@ -28,105 +40,100 @@ class AutoStashGUI(tk.Tk):
         # GUI Elements
         self.create_widgets()
         self.load_saved_settings()
-        
-        # Check backup status when starting
+        self.load_backup_timeline()
         self.check_backup_status()
 
     def create_widgets(self):
+        # Title label
+        title_label = tk.Label(self, text="Linux Backup Manager", font=("Arial", 22, "bold"), bg="#f7f7f7", fg="#2d3436")
+        title_label.pack(pady=(18, 10))
+
         # Folders Frame
         self.folder_frame = ttk.LabelFrame(self, text="Folders to Back Up")
-        self.folder_frame.pack(fill="x", padx=15, pady=10)
+        self.folder_frame.pack(fill="x", padx=18, pady=10, ipady=8)
 
-        self.folder_list = tk.Listbox(self.folder_frame, width=60, height=5, selectmode=tk.SINGLE)
-        self.folder_list.pack(side="left", padx=10, pady=10)
-        folder_btns = tk.Frame(self.folder_frame)
-        folder_btns.pack(side="left", padx=5)
-        ttk.Button(folder_btns, text="Add Folder", command=self.add_folder).pack(fill="x", pady=2)
-        ttk.Button(folder_btns, text="Remove Selected", command=self.remove_folder).pack(fill="x", pady=2)
-
-        # Separator
-        ttk.Separator(self, orient='horizontal').pack(fill='x', padx=15, pady=10)
+        folder_inner = tk.Frame(self.folder_frame, bg="#f7f7f7")
+        folder_inner.pack(fill="x", padx=10, pady=5)
+        self.folder_entry = tk.Entry(folder_inner, width=55, font=("Arial", 11))
+        self.folder_entry.pack(side="left", padx=(0, 8), pady=5)
+        ttk.Button(folder_inner, text="Add Folder", command=self.add_folder).pack(side="left", padx=(0, 8))
+        tk.Button(folder_inner, text="Remove", command=self.remove_folder, bg="#e74c3c", fg="white", font=("Arial", 10, "bold"), width=8, relief="flat").pack(side="left")
+        self.folder_list = tk.Listbox(self.folder_frame, width=95, height=2, font=("Arial", 10))
+        self.folder_list.pack(fill="x", padx=10, pady=(8, 2))
 
         # GitHub Frame
         self.repo_frame = ttk.LabelFrame(self, text="GitHub Repository")
-        self.repo_frame.pack(fill="x", padx=15, pady=5)
-
-        repo_inner = tk.Frame(self.repo_frame)
-        repo_inner.pack(padx=10, pady=5, fill="x")
+        self.repo_frame.pack(fill="x", padx=18, pady=10, ipady=8)
+        repo_inner = tk.Frame(self.repo_frame, bg="#f7f7f7")
+        repo_inner.pack(fill="x", padx=10, pady=5)
+        self.repo_combobox = ttk.Combobox(repo_inner, width=38, state="readonly")
+        self.repo_combobox.pack(side="left", padx=(0, 8), pady=5)
         ttk.Button(repo_inner, text="Connect GitHub", command=self.connect_github).pack(side="left")
-        self.repo_combobox = ttk.Combobox(repo_inner, width=40, state="readonly")
-        self.repo_combobox.pack(side="left", padx=10)
-        self.github_status = tk.Label(self.repo_frame, text="Not connected", foreground="red")
-        self.github_status.pack(anchor="w", padx=10)
 
-        # Separator
-        ttk.Separator(self, orient='horizontal').pack(fill='x', padx=15, pady=10)
-        
+        self.github_status = tk.Label(self.repo_frame, text="Not connected", fg="#c0392b", bg="#f7f7f7", font=("Arial", 10, "bold"))
+        self.github_status.pack(anchor="w", padx=10, pady=(2, 0))
+
         # Backup Options Frame
         self.options_frame = ttk.LabelFrame(self, text="Backup Options")
-        self.options_frame.pack(fill="x", padx=15, pady=5)
-        
-        # System files backup option
+        self.options_frame.pack(fill="x", padx=18, pady=10, ipady=8)
         self.system_files_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self.options_frame, text="Backup system files (/etc)", 
-                        variable=self.system_files_var).pack(anchor="w", padx=10, pady=5)
-        
-        # Encryption option
         self.encrypt_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self.options_frame, text="Encrypt backup with GPG", 
-                        variable=self.encrypt_var).pack(anchor="w", padx=10, pady=5)
-        
-        # Separator
-        ttk.Separator(self, orient='horizontal').pack(fill='x', padx=15, pady=10)
+        tk.Checkbutton(self.options_frame, text="Backup system files (/etc)", variable=self.system_files_var, bg="#f7f7f7", font=("Arial", 10)).pack(anchor="w", padx=10, pady=3)
+        tk.Checkbutton(self.options_frame, text="Encrypt backup with GPG", variable=self.encrypt_var, bg="#f7f7f7", font=("Arial", 10)).pack(anchor="w", padx=10, pady=3)
 
         # Schedule Frame
         self.schedule_frame = ttk.LabelFrame(self, text="Backup Schedule")
-        self.schedule_frame.pack(fill="x", padx=15, pady=5)
-        schedule_inner = tk.Frame(self.schedule_frame)
-        schedule_inner.pack(padx=10, pady=5, fill="x")
-        ttk.Label(schedule_inner, text="Frequency:").pack(side="left")
-        self.schedule_combobox = ttk.Combobox(schedule_inner, values=["Daily", "Weekly"], width=15, state="readonly")
+        self.schedule_frame.pack(fill="x", padx=18, pady=10, ipady=8)
+        schedule_inner = tk.Frame(self.schedule_frame, bg="#f7f7f7")
+        schedule_inner.pack(fill="x", padx=10, pady=5)
+        tk.Label(schedule_inner, text="Frequency:", bg="#f7f7f7", font=("Arial", 10)).pack(side="left")
+        self.schedule_combobox = ttk.Combobox(schedule_inner, values=["Daily", "Weekly"], width=14, state="readonly")
         self.schedule_combobox.current(0)
-        self.schedule_combobox.pack(side="left", padx=10)
-        ttk.Button(schedule_inner, text="Set Schedule", command=self.set_schedule).pack(side="left", padx=10)
+        self.schedule_combobox.pack(side="left", padx=(8, 8))
+        ttk.Button(schedule_inner, text="Set Schedule", command=self.set_schedule).pack(side="left")
 
         # Backup Status Frame
         self.status_frame = ttk.LabelFrame(self, text="Backup Status")
-        self.status_frame.pack(fill="x", padx=15, pady=5)
-        
-        self.last_backup_label = ttk.Label(self.status_frame, text="No previous backups found")
+        self.status_frame.pack(fill="x", padx=18, pady=10, ipady=8)
+        self.last_backup_label = tk.Label(self.status_frame, text="No previous backups found", fg="#c0392b", bg="#f7f7f7", font=("Arial", 10, "bold"))
         self.last_backup_label.pack(anchor="w", padx=10, pady=5)
 
-        # Separator
-        ttk.Separator(self, orient='horizontal').pack(fill='x', padx=15, pady=10)
+        # Progress Bar Frame
+        self.progress_frame = ttk.LabelFrame(self, text="Backup Progress")
+        self.progress_frame.pack(fill="x", padx=18, pady=10, ipady=8)
+        self.progress_var = tk.DoubleVar()
+        self.progress_bar = ttk.Progressbar(self.progress_frame, variable=self.progress_var, maximum=100, style="TProgressbar")
+        self.progress_bar.pack(fill="x", padx=10, pady=10)
 
-        # Backup/Restore Frame
-        action_frame = tk.Frame(self)
-        action_frame.pack(pady=10)
-        ttk.Button(action_frame, text="Run Backup Now", command=self.run_backup, width=18).pack(side="left", padx=10)
-        ttk.Button(action_frame, text="Restore Latest Backup", command=self.restore_backup, width=20).pack(side="left", padx=10)
+        # Backup Timeline Frame
+        self.timeline_frame = ttk.LabelFrame(self, text="Backup Timeline")
+        self.timeline_frame.pack(fill="x", padx=18, pady=10, ipady=8)
+        self.timeline_list = tk.Listbox(self.timeline_frame, width=110, height=5, font=("Arial", 10))
+        self.timeline_list.pack(padx=10, pady=5, fill="x")
+
+        # Action Buttons (Modern style)
+        action_frame = tk.Frame(self, bg="#f7f7f7")
+        action_frame.pack(pady=18)
+        run_btn = tk.Button(action_frame, text="Run Backup", bg="#27ae60", fg="white", font=("Arial", 12, "bold"), width=18, relief="flat", command=self.run_backup, activebackground="#219150")
+        run_btn.pack(side="left", padx=22)
+        restore_btn = tk.Button(action_frame, text="Restore Backup", bg="#2980b9", fg="white", font=("Arial", 12, "bold"), width=18, relief="flat", command=self.restore_backup, activebackground="#2471a3")
+        restore_btn.pack(side="left", padx=22)
 
         # Status Bar
         self.status_var = tk.StringVar()
         self.status_var.set("Ready.")
-        self.status_bar = ttk.Label(self, textvariable=self.status_var, relief="sunken", anchor="w")
+        self.status_bar = tk.Label(self, textvariable=self.status_var, bg="#dfe6e9", fg="#636e72", anchor="w", font=("Arial", 10))
         self.status_bar.pack(side="bottom", fill="x")
 
     def check_backup_status(self):
-        """Check last backup time and notify if overdue"""
         last_backup = self.backup.get_last_backup_time()
-        
         if last_backup:
             try:
                 backup_time = datetime.datetime.strptime(last_backup, "%Y-%m-%d %H:%M:%S")
                 now = datetime.datetime.now()
-                self.last_backup_label.config(text=f"Last backup: {backup_time.strftime('%Y-%m-%d %H:%M')}")
-                
-                # Check if backup is overdue (more than 24 hours)
+                self.last_backup_label.config(text=f"Last backup: {backup_time.strftime('%Y-%m-%d %H:%M')}", fg="#c0392b")
                 if (now - backup_time).total_seconds() > 24*60*60:
-                    self.last_backup_label.config(foreground="red")
-                    
-                    # Send desktop notification
+                    self.last_backup_label.config(fg="#c0392b")
                     try:
                         days = (now - backup_time).days
                         subprocess.run([
@@ -135,22 +142,29 @@ class AutoStashGUI(tk.Tk):
                             f"Last backup was {days} days ago"
                         ])
                     except:
-                        # If notify-send fails, just update the GUI
                         pass
                 else:
-                    self.last_backup_label.config(foreground="green")
+                    self.last_backup_label.config(fg="#27ae60")
             except Exception as e:
-                self.last_backup_label.config(text=f"Error reading backup time: {str(e)}", foreground="red")
+                self.last_backup_label.config(text=f"Error reading backup time: {str(e)}", fg="#c0392b")
         else:
-            self.last_backup_label.config(text="No previous backups found", foreground="orange")
-        
-        # Schedule this check to run again after 1 hour
+            self.last_backup_label.config(text="No previous backups found", fg="#c0392b")
         self.after(3600000, self.check_backup_status)
+
+    def load_backup_timeline(self):
+        self.timeline_list.delete(0, tk.END)
+        history_path = os.path.expanduser("~/.autostash/backup_history")
+        if os.path.exists(history_path):
+            with open(history_path, "r") as f:
+                for line in f:
+                    self.timeline_list.insert(tk.END, line.strip())
 
     def add_folder(self):
         folder = filedialog.askdirectory()
         if folder and folder not in self.folder_list.get(0, tk.END):
             self.folder_list.insert(tk.END, folder)
+            self.folder_entry.delete(0, tk.END)
+            self.folder_entry.insert(0, folder)
             self.config.save_folders(self.folder_list.get(0, tk.END))
 
     def remove_folder(self):
@@ -158,6 +172,7 @@ class AutoStashGUI(tk.Tk):
         if sel:
             self.folder_list.delete(sel)
             self.config.save_folders(self.folder_list.get(0, tk.END))
+            self.folder_entry.delete(0, tk.END)
 
     def connect_github(self):
         token = keyring.get_password("autostash", "github_token")
@@ -174,39 +189,45 @@ class AutoStashGUI(tk.Tk):
             self.repo_combobox['values'] = repos
             if repos:
                 self.repo_combobox.current(0)
-            self.github_status.config(text="Connected", foreground="green")
+            self.github_status.config(text="Connected", fg="#27ae60")
             self.status_var.set("GitHub connected. Select a repository.")
         except Exception as e:
-            self.github_status.config(text="Failed to connect", foreground="red")
+            self.github_status.config(text="Failed to connect", fg="#c0392b")
             self.status_var.set(f"GitHub error: {e}")
 
     def run_backup(self):
         folders = self.folder_list.get(0, tk.END)
         repo = self.repo_combobox.get()
-        
         if not folders or not repo:
             messagebox.showerror("Missing Info", "Please select at least one folder and a GitHub repository.")
             return
-            
         self.status_var.set("Running backup...")
         self.update_idletasks()
-        
+        self.progress_var.set(0)
+        self.progress_bar.update()
+
+        def progress_callback(percent):
+            self.progress_var.set(percent)
+            self.progress_bar.update()
+
         try:
-            # Get backup options
             backup_system = self.system_files_var.get()
             encrypt = self.encrypt_var.get()
-            
-            # Run backup with options
-            self.backup.run(folders, repo, backup_system=backup_system, encrypt=encrypt)
-            
+            self.backup.run(
+                folders, repo,
+                backup_system=backup_system,
+                encrypt=encrypt,
+                progress_callback=progress_callback
+            )
             self.status_var.set("Backup completed successfully!")
             messagebox.showinfo("Backup", "Backup completed successfully!")
-            
-            # Update status display
             self.check_backup_status()
+            self.progress_var.set(100)
+            self.load_backup_timeline()
         except Exception as e:
             self.status_var.set(f"Backup failed: {e}")
             messagebox.showerror("Backup Failed", str(e))
+            self.progress_var.set(0)
 
     def restore_backup(self):
         repo = self.repo_combobox.get()
@@ -226,9 +247,9 @@ class AutoStashGUI(tk.Tk):
     def set_schedule(self):
         freq = self.schedule_combobox.get()
         if freq == "Daily":
-            interval = "0 2 * * *"  # 2 AM every day
+            interval = "0 2 * * *"
         elif freq == "Weekly":
-            interval = "0 2 * * 0"  # 2 AM every Sunday
+            interval = "0 2 * * 0"
         else:
             interval = "0 2 * * *"
         try:
@@ -243,6 +264,8 @@ class AutoStashGUI(tk.Tk):
         folders = self.config.get_folders()
         for folder in folders:
             self.folder_list.insert(tk.END, folder)
+            self.folder_entry.delete(0, tk.END)
+            self.folder_entry.insert(0, folder)
 
 if __name__ == "__main__":
     app = AutoStashGUI()
