@@ -5,8 +5,6 @@ import hashlib
 import logging
 import datetime
 import subprocess
-import tkinter as tk
-import tkinter.simpledialog
 from git import Repo, GitCommandError
 from github import GithubException
 
@@ -41,13 +39,11 @@ class BackupManager:
             self.logger.addHandler(handler)
             print(f"Using fallback log location due to: {str(e)}")
 
-    def run(self, folders, repo_name, backup_system=False, encrypt=False, progress_callback=None):
+    def run(self, folders, repo_name, backup_system=False, progress_callback=None):
         try:
             self.logger.info(f"Starting backup to {repo_name}")
             steps = len(folders)
             if backup_system:
-                steps += 1
-            if encrypt:
                 steps += 1
             completed = 0
 
@@ -73,14 +69,6 @@ class BackupManager:
 
             self._git_commit_push()
             self._record_backup_time()
-
-            if encrypt:
-                self.logger.info("Encrypting backup")
-                self._encrypt_backup()
-                completed += 1
-                if progress_callback:
-                    progress_callback(completed / steps * 100)
-
             self.logger.info("Backup completed successfully")
             self._append_backup_history()
 
@@ -117,45 +105,6 @@ class BackupManager:
                     self.logger.warning(f"Permission denied for: {file_path}")
                 except Exception as e:
                     self.logger.error(f"Failed to backup {file_path}: {str(e)}")
-
-    def _encrypt_backup(self):
-        try:
-            root = tk.Tk()
-            root.withdraw()  # Hide the main window
-
-            # Ask for passphrase via GUI
-            passphrase = tkinter.simpledialog.askstring(
-                "Encryption Passphrase",
-                "Enter passphrase for encryption:",
-                show='*'
-            )
-            if not passphrase:
-                raise Exception("Encryption canceled by user")
-
-            backup_archive = f"{self.repo_path}.tar.gz"
-            encrypted_file = f"{backup_archive}.gpg"
-            
-            # Create archive of repo
-            subprocess.run([
-                "tar", "czf", backup_archive, "-C", 
-                os.path.dirname(self.repo_path), 
-                os.path.basename(self.repo_path)
-            ], check=True)
-            
-            # Encrypt with GPG (store passphrase in repo)
-            subprocess.run([
-                "gpg", "--symmetric",
-                "--cipher-algo", "AES256",
-                "--passphrase", passphrase,
-                "-o", encrypted_file, backup_archive
-            ], check=True)
-            
-            os.remove(backup_archive)
-            self.logger.info(f"Backup encrypted: {encrypted_file}")
-            return encrypted_file
-        except Exception as e:
-            self.logger.error(f"Encryption failed: {str(e)}")
-            raise Exception(f"Failed to encrypt backup: {str(e)}")
 
     def _repo_exists(self, repo_name):
         url = f"https://github.com/{repo_name}"
@@ -221,39 +170,8 @@ class BackupManager:
             
             if os.path.exists(restore_path):
                 shutil.rmtree(restore_path)
-            
-            # Clone repo (including encrypted file)
+                
             Repo.clone_from(repo_url, restore_path)
-            
-            # Look for encrypted backup INSIDE the cloned repo
-            encrypted_file = os.path.join(restore_path, f"{os.path.basename(self.repo_path)}.tar.gz.gpg")
-            
-            if os.path.exists(encrypted_file):
-                root = tk.Tk()
-                root.withdraw()
-                
-                # Ask for passphrase via GUI
-                passphrase = tkinter.simpledialog.askstring(
-                    "Decryption Passphrase",
-                    "Enter passphrase for decryption:",
-                    show='*'
-                )
-                if not passphrase:
-                    raise Exception("Decryption canceled by user")
-                
-                decrypted_file = os.path.join(restore_path, "decrypted.tar.gz")
-                
-                # Decrypt with GUI-provided passphrase
-                subprocess.run([
-                    "gpg", "--decrypt",
-                    "--passphrase", passphrase,
-                    "--output", decrypted_file, encrypted_file
-                ], check=True)
-                
-                # Extract decrypted files OVER the cloned repo
-                subprocess.run(["tar", "xzf", decrypted_file, "-C", restore_path], check=True)
-                os.remove(decrypted_file)
-            
             return restore_path
         except Exception as e:
             self.logger.error(f"Restore failed: {str(e)}")

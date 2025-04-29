@@ -14,12 +14,11 @@ class AutoStashGUI(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Autostash - A Linux Admin Smart Backup System")
-        self.geometry("800x1000")  # or bigger if needed
+        self.geometry("800x1000")
         self.minsize(800, 1000)
         self.configure(bg="#f7f7f7")
         self.option_add("*Font", "Arial 11")
 
-        # ttk style tweaks for modern look
         style = ttk.Style(self)
         style.theme_use("clam")
         style.configure("TLabelframe", background="#f7f7f7", borderwidth=0)
@@ -30,22 +29,18 @@ class AutoStashGUI(tk.Tk):
         style.configure("TCombobox", fieldbackground="#fff", background="#fff")
         style.configure("TProgressbar", thickness=18, troughcolor="#e0e0e0", background="#3498db", bordercolor="#bdc3c7", lightcolor="#5dade2", darkcolor="#2980b9")
 
-        # Managers
         self.config = ConfigManager()
         self.github = GitHubManager()
         self.backup = BackupManager()
 
-        # Create ~/.autostash directory if it doesn't exist
         os.makedirs(os.path.expanduser("~/.autostash"), exist_ok=True)
 
-        # GUI Elements
         self.create_widgets()
         self.load_saved_settings()
         self.load_backup_timeline()
         self.check_backup_status()
 
     def create_widgets(self):
-        # Title label
         title_label = tk.Label(self, text="Autostash", font=("Arial", 22, "bold"), bg="#f7f7f7", fg="#2d3436")
         title_label.pack(pady=(18, 10))
 
@@ -74,13 +69,11 @@ class AutoStashGUI(tk.Tk):
         self.github_status = tk.Label(self.repo_frame, text="Not connected", fg="#c0392b", bg="#f7f7f7", font=("Arial", 10, "bold"))
         self.github_status.pack(anchor="w", padx=10, pady=(2, 0))
 
-        # Backup Options Frame
+        # Backup Options Frame (NO ENCRYPTION OPTION)
         self.options_frame = ttk.LabelFrame(self, text="Backup Options")
         self.options_frame.pack(fill="x", padx=18, pady=10, ipady=8)
         self.system_files_var = tk.BooleanVar(value=False)
-        self.encrypt_var = tk.BooleanVar(value=False)
         tk.Checkbutton(self.options_frame, text="Backup system files (/etc)", variable=self.system_files_var, bg="#f7f7f7", font=("Arial", 10)).pack(anchor="w", padx=10, pady=3)
-        tk.Checkbutton(self.options_frame, text="Encrypt backup with GPG", variable=self.encrypt_var, bg="#f7f7f7", font=("Arial", 10)).pack(anchor="w", padx=10, pady=3)
 
         # Schedule Frame
         self.schedule_frame = ttk.LabelFrame(self, text="Backup Schedule")
@@ -213,11 +206,9 @@ class AutoStashGUI(tk.Tk):
 
         try:
             backup_system = self.system_files_var.get()
-            encrypt = self.encrypt_var.get()
             self.backup.run(
                 folders, repo,
                 backup_system=backup_system,
-                encrypt=encrypt,
                 progress_callback=progress_callback
             )
             self.status_var.set("Backup completed successfully!")
