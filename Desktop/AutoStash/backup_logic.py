@@ -125,6 +125,13 @@ class BackupManager:
                 self.repo.remotes.origin.pull()
             except GitCommandError:
                 raise Exception("Failed to sync with remote repository")
+        # Warn if .gitignore exists and ignores everything
+        gitignore_path = os.path.join(self.repo_path, ".gitignore")
+        if os.path.exists(gitignore_path):
+            with open(gitignore_path) as f:
+                lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+            if "*" in lines and not any("!" in line for line in lines):
+                self.logger.warning(".gitignore may be ignoring all files! Check your .gitignore.")
 
     def _sync_folder(self, src_folder):
         try:
@@ -155,8 +162,9 @@ class BackupManager:
 
     def _git_commit_push(self):
         try:
+            self.repo.git.add(A=True)
+            # Only commit if there are changes
             if self.repo.is_dirty() or len(self.repo.untracked_files) > 0:
-                self.repo.git.add(A=True)
                 self.repo.git.commit(m="AutoStash Backup")
                 self.repo.remotes.origin.push()
         except GitCommandError as e:
@@ -167,10 +175,8 @@ class BackupManager:
             self.logger.info(f"Restoring from {repo_name}")
             repo_url = f"https://github.com/{repo_name}.git"
             restore_path = os.path.expanduser("~/autostash_restore")
-            
             if os.path.exists(restore_path):
                 shutil.rmtree(restore_path)
-                
             Repo.clone_from(repo_url, restore_path)
             return restore_path
         except Exception as e:
