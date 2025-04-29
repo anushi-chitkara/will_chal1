@@ -112,6 +112,14 @@ class AutoStashGUI(tk.Tk):
         self.timeline_list.pack(side="left", fill="both", expand=True)
         self.timeline_scroll.config(command=self.timeline_list.yview)
 
+        # Heading for Backup History
+        self.heading_label = tk.Label(self.timeline_frame, text="Latest Backup Entries", font=("Arial", 14, "bold"), bg="#f7f7f7")
+        self.heading_label.pack(pady=(5, 0))
+
+        # Date and Time Label
+        self.date_time_label = tk.Label(self.timeline_frame, text="Date and Time", font=("Arial", 12, "italic"), bg="#f7f7f7")
+        self.date_time_label.pack(pady=(5, 0))
+
         # Action Buttons
         action_frame = tk.Frame(self, bg="#f7f7f7")
         action_frame.pack(pady=18)
@@ -128,6 +136,16 @@ class AutoStashGUI(tk.Tk):
         self.status_bar = tk.Label(self, textvariable=self.status_var, bg="#dfe6e9", 
                                  fg="#636e72", anchor="w", font=("Arial", 10))
         self.status_bar.pack(side="bottom", fill="x")
+
+    def load_backup_timeline(self):
+        self.timeline_list.delete(0, tk.END)
+        history_path = os.path.expanduser("~/.autostash/backup_history")
+        if os.path.exists(history_path):
+            with open(history_path, "r") as f:
+                lines = f.readlines()
+                # Reverse the order of entries
+                for line in reversed(lines):
+                    self.timeline_list.insert(tk.END, line.strip())
 
     # Remaining methods remain unchanged...
 
