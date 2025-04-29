@@ -205,6 +205,17 @@ class BackupManager:
                 shutil.rmtree(restore_path)
             Repo.clone_from(repo_url, restore_path)
             self.logger.info(f"Restore completed to {restore_path}")
+
+            # If encrypted backup exists, prompt for passphrase every time
+            encrypted_file = f"{restore_path}.tar.gz.gpg"
+            if os.path.exists(encrypted_file):
+                decrypted_file = f"{restore_path}.tar.gz"
+                subprocess.run([
+                    "gpg", "--batch", "--yes", "--no-symkey-cache",
+                    "--decrypt", "-o", decrypted_file, encrypted_file
+                ])
+                # Optionally extract the archive
+                subprocess.run(["tar", "xzf", decrypted_file, "-C", restore_path])
             return restore_path
         except Exception as e:
             self.logger.error(f"Restore failed: {str(e)}")
@@ -214,6 +225,6 @@ class BackupManager:
         try:
             with open(os.path.expanduser("~/.autostash/last_backup"), "r") as f:
                 return f.read().strip()
-        except:
+        except Exception:
             return None
 

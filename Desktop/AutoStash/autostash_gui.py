@@ -13,8 +13,9 @@ import scheduler
 class AutoStashGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Linux Backup Manager")
-        self.geometry("760x850")
+        self.title("Autostash - A Linux Admin Smart Backup System")
+        self.geometry("800x1000")  # or bigger if needed
+        self.minsize(800, 1000)
         self.configure(bg="#f7f7f7")
         self.option_add("*Font", "Arial 11")
 
@@ -45,7 +46,7 @@ class AutoStashGUI(tk.Tk):
 
     def create_widgets(self):
         # Title label
-        title_label = tk.Label(self, text="Linux Backup Manager", font=("Arial", 22, "bold"), bg="#f7f7f7", fg="#2d3436")
+        title_label = tk.Label(self, text="Autostash", font=("Arial", 22, "bold"), bg="#f7f7f7", fg="#2d3436")
         title_label.pack(pady=(18, 10))
 
         # Folders Frame
@@ -132,7 +133,7 @@ class AutoStashGUI(tk.Tk):
                 backup_time = datetime.datetime.strptime(last_backup, "%Y-%m-%d %H:%M:%S")
                 now = datetime.datetime.now()
                 self.last_backup_label.config(text=f"Last backup: {backup_time.strftime('%Y-%m-%d %H:%M')}", fg="#c0392b")
-                if (now - backup_time).total_seconds() > 24*60*60:
+                if (now - backup_time).total_seconds() > 24 * 60 * 60:
                     self.last_backup_label.config(fg="#c0392b")
                     try:
                         days = (now - backup_time).days
