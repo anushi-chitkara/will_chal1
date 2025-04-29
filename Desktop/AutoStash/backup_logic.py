@@ -117,6 +117,7 @@ class BackupManager:
                     self.logger.error(f"Failed to backup {file_path}: {str(e)}")
 
     def _encrypt_backup(self):
+        import getpass
         try:
             backup_archive = f"{self.repo_path}.tar.gz"
             encrypted_file = f"{backup_archive}.gpg"
@@ -126,11 +127,14 @@ class BackupManager:
                 os.path.dirname(self.repo_path), 
                 os.path.basename(self.repo_path)
             ], check=True)
-            # Encrypt with GPG, will prompt for passphrase
+            # Prompt for passphrase
+            passphrase = getpass.getpass("Enter GPG passphrase for encryption: ")
+            # Encrypt with GPG
             subprocess.run([
                 "gpg", "--batch", "--yes", "--symmetric",
                 "--cipher-algo", "AES256",
                 "--pinentry-mode", "loopback",
+                "--passphrase", passphrase,
                 "-o", encrypted_file, backup_archive
             ], check=True)
             os.remove(backup_archive)
