@@ -16,7 +16,6 @@ class BackupManager:
         self._setup_logging()
 
     def _setup_logging(self):
-        """Set up logging to /var/log/autostash"""
         try:
             if not os.path.exists(self.log_path):
                 try:
@@ -81,20 +80,18 @@ class BackupManager:
                     progress_callback(completed / steps * 100)
 
             self.logger.info("Backup completed successfully")
-            self._append_backup_history()  # NEW: add to history
+            self._append_backup_history()
 
         except Exception as e:
             self.logger.error(f"Backup failed: {str(e)}")
             raise Exception(f"Backup failed: {str(e)}")
 
     def _record_backup_time(self):
-        """Record the time of successful backup"""
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(os.path.expanduser("~/.autostash/last_backup"), "w") as f:
             f.write(timestamp)
 
     def _append_backup_history(self):
-        """Append backup time to history file"""
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(os.path.expanduser("~/.autostash/backup_history"), "a") as f:
             f.write(timestamp + "\n")
@@ -123,16 +120,19 @@ class BackupManager:
         try:
             backup_archive = f"{self.repo_path}.tar.gz"
             encrypted_file = f"{backup_archive}.gpg"
+            # Create archive of repo
             subprocess.run([
                 "tar", "czf", backup_archive, "-C", 
                 os.path.dirname(self.repo_path), 
                 os.path.basename(self.repo_path)
-            ])
+            ], check=True)
+            # Encrypt with GPG, will prompt for passphrase
             subprocess.run([
                 "gpg", "--batch", "--yes", "--symmetric",
-                "--cipher-algo", "AES256", 
+                "--cipher-algo", "AES256",
+                "--pinentry-mode", "loopback",
                 "-o", encrypted_file, backup_archive
-            ])
+            ], check=True)
             os.remove(backup_archive)
             self.logger.info(f"Backup encrypted: {encrypted_file}")
             return encrypted_file
@@ -206,16 +206,18 @@ class BackupManager:
             Repo.clone_from(repo_url, restore_path)
             self.logger.info(f"Restore completed to {restore_path}")
 
-            # If encrypted backup exists, prompt for passphrase every time
+            # Look for encrypted backup and prompt for passphrase every time
             encrypted_file = f"{restore_path}.tar.gz.gpg"
             if os.path.exists(encrypted_file):
                 decrypted_file = f"{restore_path}.tar.gz"
+                # Always ask for passphrase, don't cache
                 subprocess.run([
                     "gpg", "--batch", "--yes", "--no-symkey-cache",
+                    "--pinentry-mode", "loopback",
                     "--decrypt", "-o", decrypted_file, encrypted_file
-                ])
-                # Optionally extract the archive
-                subprocess.run(["tar", "xzf", decrypted_file, "-C", restore_path])
+                ], check=True)
+                # Extract archive
+                subprocess.run(["tar", "xzf", decrypted_file, "-C", restore_path], check=True)
             return restore_path
         except Exception as e:
             self.logger.error(f"Restore failed: {str(e)}")
@@ -225,6 +227,6 @@ class BackupManager:
         try:
             with open(os.path.expanduser("~/.autostash/last_backup"), "r") as f:
                 return f.read().strip()
-        except Exception:
+        except:
             return None
 
