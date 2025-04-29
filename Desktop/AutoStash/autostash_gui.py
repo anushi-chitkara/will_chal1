@@ -19,6 +19,7 @@ class AutoStashGUI(tk.Tk):
         self.configure(bg="#f7f7f7")
         self.option_add("*Font", "Arial 11")
 
+        # ttk style tweaks for modern look
         style = ttk.Style(self)
         style.theme_use("clam")
         style.configure("TLabelframe", background="#f7f7f7", borderwidth=0)
@@ -29,18 +30,22 @@ class AutoStashGUI(tk.Tk):
         style.configure("TCombobox", fieldbackground="#fff", background="#fff")
         style.configure("TProgressbar", thickness=18, troughcolor="#e0e0e0", background="#3498db", bordercolor="#bdc3c7", lightcolor="#5dade2", darkcolor="#2980b9")
 
+        # Managers
         self.config = ConfigManager()
         self.github = GitHubManager()
         self.backup = BackupManager()
 
+        # Create ~/.autostash directory if it doesn't exist
         os.makedirs(os.path.expanduser("~/.autostash"), exist_ok=True)
 
+        # GUI Elements
         self.create_widgets()
         self.load_saved_settings()
         self.load_backup_timeline()
         self.check_backup_status()
 
     def create_widgets(self):
+        # Title label
         title_label = tk.Label(self, text="Autostash", font=("Arial", 22, "bold"), bg="#f7f7f7", fg="#2d3436")
         title_label.pack(pady=(18, 10))
 
@@ -65,52 +70,36 @@ class AutoStashGUI(tk.Tk):
         self.repo_combobox = ttk.Combobox(repo_inner, width=38, state="readonly")
         self.repo_combobox.pack(side="left", padx=(0, 8), pady=5)
         ttk.Button(repo_inner, text="Connect GitHub", command=self.connect_github).pack(side="left")
-
         self.github_status = tk.Label(self.repo_frame, text="Not connected", fg="#c0392b", bg="#f7f7f7", font=("Arial", 10, "bold"))
         self.github_status.pack(anchor="w", padx=10, pady=(2, 0))
 
-        # Backup Options Frame (NO ENCRYPTION OPTION)
+        # Backup Options Frame
         self.options_frame = ttk.LabelFrame(self, text="Backup Options")
         self.options_frame.pack(fill="x", padx=18, pady=10, ipady=8)
         self.system_files_var = tk.BooleanVar(value=False)
         tk.Checkbutton(self.options_frame, text="Backup system files (/etc)", variable=self.system_files_var, bg="#f7f7f7", font=("Arial", 10)).pack(anchor="w", padx=10, pady=3)
 
-        # Schedule Frame
-        self.schedule_frame = ttk.LabelFrame(self, text="Backup Schedule")
-        self.schedule_frame.pack(fill="x", padx=18, pady=10, ipady=8)
-        schedule_inner = tk.Frame(self.schedule_frame, bg="#f7f7f7")
-        schedule_inner.pack(fill="x", padx=10, pady=5)
-        tk.Label(schedule_inner, text="Frequency:", bg="#f7f7f7", font=("Arial", 10)).pack(side="left")
-        self.schedule_combobox = ttk.Combobox(schedule_inner, values=["Daily", "Weekly"], width=14, state="readonly")
-        self.schedule_combobox.current(0)
-        self.schedule_combobox.pack(side="left", padx=(8, 8))
-        ttk.Button(schedule_inner, text="Set Schedule", command=self.set_schedule).pack(side="left")
-
-        # Backup Status Frame
-        self.status_frame = ttk.LabelFrame(self, text="Backup Status")
-        self.status_frame.pack(fill="x", padx=18, pady=10, ipady=8)
-        self.last_backup_label = tk.Label(self.status_frame, text="No previous backups found", fg="#c0392b", bg="#f7f7f7", font=("Arial", 10, "bold"))
-        self.last_backup_label.pack(anchor="w", padx=10, pady=5)
-
-        # Progress Bar Frame
+        # Progress Frame
         self.progress_frame = ttk.LabelFrame(self, text="Backup Progress")
         self.progress_frame.pack(fill="x", padx=18, pady=10, ipady=8)
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(self.progress_frame, variable=self.progress_var, maximum=100, style="TProgressbar")
-        self.progress_bar.pack(fill="x", padx=10, pady=10)
+        self.progress_bar.pack(fill="x", padx=10, pady=5)
+        self.progress_text = tk.Label(self.progress_frame, text="", bg="#f7f7f7", fg="#2d3436", font=("Arial", 9))
+        self.progress_text.pack()
 
         # Backup Timeline Frame
-        self.timeline_frame = ttk.LabelFrame(self, text="Backup Timeline")
+        self.timeline_frame = ttk.LabelFrame(self, text="Backup History")
         self.timeline_frame.pack(fill="x", padx=18, pady=10, ipady=8)
-        self.timeline_list = tk.Listbox(self.timeline_frame, width=110, height=5, font=("Arial", 10))
+        self.timeline_list = tk.Listbox(self.timeline_frame, width=110, height=5, font=("Monospace", 9), bg="#ffffff", selectbackground="#e0f3ff")
         self.timeline_list.pack(padx=10, pady=5, fill="x")
 
-        # Action Buttons (Modern style)
+        # Action Buttons
         action_frame = tk.Frame(self, bg="#f7f7f7")
         action_frame.pack(pady=18)
-        run_btn = tk.Button(action_frame, text="Run Backup", bg="#27ae60", fg="white", font=("Arial", 12, "bold"), width=18, relief="flat", command=self.run_backup, activebackground="#219150")
+        run_btn = tk.Button(action_frame, text="Run Backup", bg="#27ae60", fg="white", font=("Arial", 12, "bold"), width=18, relief="flat", command=self.run_backup)
         run_btn.pack(side="left", padx=22)
-        restore_btn = tk.Button(action_frame, text="Restore Backup", bg="#2980b9", fg="white", font=("Arial", 12, "bold"), width=18, relief="flat", command=self.restore_backup, activebackground="#2471a3")
+        restore_btn = tk.Button(action_frame, text="Restore Backup", bg="#2980b9", fg="white", font=("Arial", 12, "bold"), width=18, relief="flat", command=self.restore_backup)
         restore_btn.pack(side="left", padx=22)
 
         # Status Bar

@@ -6,7 +6,6 @@ import logging
 import datetime
 import subprocess
 from git import Repo, GitCommandError
-from github import GithubException
 
 class BackupManager:
     def __init__(self):
@@ -16,6 +15,7 @@ class BackupManager:
         self._setup_logging()
 
     def _setup_logging(self):
+        """Set up logging to /var/log/autostash"""
         try:
             if not os.path.exists(self.log_path):
                 try:
@@ -48,40 +48,57 @@ class BackupManager:
             completed = 0
 
             if not self._repo_exists(repo_name):
-                self.logger.error(f"Repository {repo_name} doesn't exist or no access")
-                raise Exception(f"Repository {repo_name} doesn't exist or you don't have access")
+                raise Exception(f"Repository {repo_name} doesn't exist or no access")
 
             self._prepare_repo(repo_name)
 
             for folder in folders:
-                self.logger.info(f"Backing up: {folder}")
+                if progress_callback:
+                    progress_callback(completed / steps * 100, f"Backing up {os.path.basename(folder)}...")
                 self._sync_folder(folder)
                 completed += 1
-                if progress_callback:
-                    progress_callback(completed / steps * 100)
 
             if backup_system:
-                self.logger.info("Backing up system files")
+                if progress_callback:
+                    progress_callback(completed / steps * 100, "Backing up system files...")
                 self._backup_system_files()
                 completed += 1
-                if progress_callback:
-                    progress_callback(completed / steps * 100)
 
             self._git_commit_push()
             self._record_backup_time()
-            self.logger.info("Backup completed successfully")
             self._append_backup_history()
+            
+            if progress_callback:
+                progress_callback(100, "Backup complete")
 
         except Exception as e:
             self.logger.error(f"Backup failed: {str(e)}")
-            raise Exception(f"Backup failed: {str(e)}")
+            raise
+
+    def restore(self, repo_name):
+        try:
+            self.logger.info(f"Restoring from {repo_name}")
+            repo_url = f"https://github.com/{repo_name}.git"
+            restore_path = os.path.expanduser("~/autostash_restore")
+            
+            if os.path.exists(restore_path):
+                shutil.rmtree(restore_path)
+                
+            Repo.clone_from(repo_url, restore_path)
+            return restore_path
+            
+        except Exception as e:
+            self.logger.error(f"Restore failed: {str(e)}")
+            raise Exception(f"Restore failed: {str(e)}")
 
     def _record_backup_time(self):
+        """Record the time of successful backup"""
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(os.path.expanduser("~/.autostash/last_backup"), "w") as f:
             f.write(timestamp)
 
     def _append_backup_history(self):
+        """Append backup time to history file"""
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(os.path.expanduser("~/.autostash/backup_history"), "a") as f:
             f.write(timestamp + "\n")
@@ -125,13 +142,6 @@ class BackupManager:
                 self.repo.remotes.origin.pull()
             except GitCommandError:
                 raise Exception("Failed to sync with remote repository")
-        # Warn if .gitignore exists and ignores everything
-        gitignore_path = os.path.join(self.repo_path, ".gitignore")
-        if os.path.exists(gitignore_path):
-            with open(gitignore_path) as f:
-                lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
-            if "*" in lines and not any("!" in line for line in lines):
-                self.logger.warning(".gitignore may be ignoring all files! Check your .gitignore.")
 
     def _sync_folder(self, src_folder):
         try:
@@ -162,31 +172,17 @@ class BackupManager:
 
     def _git_commit_push(self):
         try:
-            self.repo.git.add(A=True)
-            # Only commit if there are changes
             if self.repo.is_dirty() or len(self.repo.untracked_files) > 0:
+                self.repo.git.add(A=True)
                 self.repo.git.commit(m="AutoStash Backup")
                 self.repo.remotes.origin.push()
         except GitCommandError as e:
             raise Exception(f"Git error: {str(e)}")
 
-    def restore(self, repo_name):
-        try:
-            self.logger.info(f"Restoring from {repo_name}")
-            repo_url = f"https://github.com/{repo_name}.git"
-            restore_path = os.path.expanduser("~/autostash_restore")
-            if os.path.exists(restore_path):
-                shutil.rmtree(restore_path)
-            Repo.clone_from(repo_url, restore_path)
-            return restore_path
-        except Exception as e:
-            self.logger.error(f"Restore failed: {str(e)}")
-            raise Exception(f"Restore failed: {str(e)}")
-
     def get_last_backup_time(self):
         try:
             with open(os.path.expanduser("~/.autostash/last_backup"), "r") as f:
                 return f.read().strip()
-        except:
+        except Exception:
             return None
 
